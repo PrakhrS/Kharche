@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from database.db import get_db, init_db, seed_db, create_user
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 
 app = Flask(__name__)
@@ -18,6 +18,10 @@ def landing():
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    # Redirect to home if already logged in
+    if session.get("user_id"):
+        return redirect(url_for("landing"))
+
     if request.method == "POST":
         # Get form data
         name = request.form.get("name")
@@ -51,7 +55,7 @@ def register():
             session["user_name"] = name
 
             flash("Registration successful!", "success")
-            return redirect(url_for("login"))
+            return redirect(url_for("landing"))
         except sqlite3.IntegrityError:
             flash("Email already registered", "error")
             return render_template("register.html")
@@ -65,9 +69,61 @@ def register():
     return render_template("register.html")
 
 
-@app.route("/login")
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    # Redirect to home if already logged in
+    if session.get("user_id"):
+        return redirect(url_for("landing"))
+
+    if request.method == "POST":
+        # Get form data
+        email = request.form.get("email")
+        password = request.form.get("password")
+
+        # Validate input
+        if not email or not password:
+            flash("Email and password are required", "error")
+            return render_template("login.html")
+
+        # Connect to database
+        db = get_db()
+
+        try:
+            # Find user by email
+            cursor = db.execute(
+                "SELECT id, name, email, password_hash FROM users WHERE email = ?",
+                (email,)
+            )
+            user = cursor.fetchone()
+
+            # Check if user exists and password matches
+            if user and check_password_hash(user["password_hash"], password):
+                # Set session variables
+                session["user_id"] = user["id"]
+                session["user_email"] = user["email"]
+                session["user_name"] = user["name"]
+
+                flash("Login successful!", "success")
+                return redirect(url_for("profile"))
+            else:
+                flash("Invalid email or password", "error")
+                return render_template("login.html")
+        except Exception as e:
+            flash("An error occurred during login", "error")
+            return render_template("login.html")
+        finally:
+            db.close()
+
+    # GET request
     return render_template("login.html")
+
+
+@app.route("/logout")
+def logout():
+    # Clear session
+    session.clear()
+    flash("You have been logged out", "info")
+    return redirect(url_for("landing"))
 
 
 @app.route("/terms")
@@ -83,10 +139,6 @@ def privacy():
 # ------------------------------------------------------------------ #
 # Placeholder routes — students will implement these                  #
 # ------------------------------------------------------------------ #
-
-@app.route("/logout")
-def logout():
-    return "Logout — coming in Step 3"
 
 
 @app.route("/profile")
