@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from database.db import get_db, init_db, seed_db, create_user
+from database.queries import get_user_by_id, get_recent_transactions, get_summary_stats, get_category_breakdown
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 
@@ -144,38 +145,19 @@ def privacy():
 @app.route("/profile")
 def profile():
     # Authentication guard
-    if not session.get("user_id"):
+    user_id = session.get("user_id")
+    if not user_id:
         return redirect(url_for("login"))
 
-    # Hardcoded data for UI validation (Step 4)
-    user = {
-        "name": session.get("user_name", "Prakhar Sharma"),
-        "email": session.get("user_email", "prakhar@example.com"),
-        "member_since": "January 2024",
-        "initials": "PS"
-    }
+    # Fetch real user data
+    user = get_user_by_id(user_id)
+    if not user:
+        flash("User not found", "error")
+        return redirect(url_for("login"))
 
-    stats = {
-        "total_spent": "₹ 12,450.00",
-        "transaction_count": 42,
-        "top_category": "Food & Dining"
-    }
-
-    transactions = [
-        {"date": "2024-09-10", "description": "Grocery Shopping", "category": "Shopping", "amount": "₹ 1,200.00"},
-        {"date": "2024-09-08", "description": "Uber Ride", "category": "Transport", "amount": "₹ 350.00"},
-        {"date": "2024-09-05", "description": "Dinner at Taj", "category": "Food", "amount": "₹ 4,500.00"},
-        {"date": "2024-09-02", "description": "Netflix Subscription", "category": "Entertainment", "amount": "₹ 499.00"},
-        {"date": "2024-08-28", "description": "Electric Bill", "category": "Utilities", "amount": "₹ 2,100.00"},
-    ]
-
-    categories = [
-        {"name": "Food & Dining", "total": "₹ 4,200.00", "percentage": 34},
-        {"name": "Shopping", "total": "₹ 3,100.00", "percentage": 25},
-        {"name": "Transport", "total": "₹ 1,800.00", "percentage": 14},
-        {"name": "Utilities", "total": "₹ 2,100.00", "percentage": 17},
-        {"name": "Entertainment", "total": "₹ 1,250.00", "percentage": 10},
-    ]
+    stats = get_summary_stats(user_id)
+    transactions = get_recent_transactions(user_id)
+    categories = get_category_breakdown(user_id)
 
     return render_template(
         "profile.html",
