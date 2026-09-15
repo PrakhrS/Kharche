@@ -1,0 +1,71 @@
+/* Filter Bar Styles */
+.filter-bar {
+    margin-bottom: 2.5rem;
+}
+
+.filter-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+    padding: 1rem;
+}
+
+.filter-presets {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: 0.4rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--ink-muted);
+    background: var(--paper);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s;
+}
+
+.filter-btn:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+}
+
+.filter-btn.active {
+    background: var(--accent);
+    color: var(--paper);
+    border-color: var(--accent);
+}
+
+.filter-custom {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+}
+
+.filter-custom .form-group {
+    margin-bottom: 0;
+}
+
+.filter-custom label {
+    font-size: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+@media (max-width: 900px) {
+    .filter-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.5rem;
+    }
+
+    .filter-presets {
+        justify-content: center;
+    }
+
+    .filter-custom {
+        justify-content: center;
+    }
+}
