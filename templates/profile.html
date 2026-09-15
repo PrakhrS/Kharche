@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+{% block head %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="profile-container">
     <!-- User Info Card -->
@@ -12,6 +16,40 @@
                     <p class="text-muted">{{ user.email }}</p>
                     <p class="member-since">Member since {{ user.member_since }}</p>
                 </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Date Filter Bar -->
+    <section class="filter-bar">
+        <div class="auth-card">
+            <div class="filter-container">
+                <div class="filter-presets">
+                    <a href="{{ url_for('profile') }}"
+                       class="filter-btn {{ 'active' if active_filter == 'all' }}">
+                       All Time
+                    </a>
+                    {% for key, range in presets.items() %}
+                    <a href="{{ url_for('profile', date_from=range.from, date_to=range.to) }}"
+                       class="filter-btn {{ 'active' if active_filter == key }}">
+                       {{ key.replace('-', ' ').title() }}
+                    </a>
+                    {% endfor %}
+                </div>
+
+                <form method="GET" action="{{ url_for('profile') }}" class="filter-custom">
+                    <div class="form-group">
+                        <label for="date_from">From</label>
+                        <input type="date" id="date_from" name="date_from"
+                               value="{{ date_from or '' }}" class="form-input">
+                    </div>
+                    <div class="form-group">
+                        <label for="date_to">To</label>
+                        <input type="date" id="date_to" name="date_to"
+                               value="{{ date_to or '' }}" class="form-input">
+                    </div>
+                    <button type="submit" class="btn-primary">Apply</button>
+                </form>
             </div>
         </div>
     </section>

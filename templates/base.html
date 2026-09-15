@@ -31,6 +31,17 @@
     </nav>
 
     <main class="main-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            <div class="auth-container" style="margin-top: 2rem;">
+              {% for category, message in messages %}
+                <div class="auth-error" style="margin-bottom: 1rem; border-color: {{ 'var(--danger)' if category == 'error' else 'var(--border)' }}">
+                  {{ message }}
+                </div>
+              {% endfor %}
+            </div>
+          {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </main>
 

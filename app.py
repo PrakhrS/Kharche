@@ -3,6 +3,7 @@ from database.db import get_db, init_db, seed_db, create_user
 from database.queries import get_user_by_id, get_recent_transactions, get_summary_stats, get_category_breakdown
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'dev-secret-key-change-in-production'
@@ -142,6 +143,53 @@ def privacy():
 # ------------------------------------------------------------------ #
 
 
+def validate_date(date_str):
+    """Validates a date string in YYYY-MM-DD format."""
+    if not date_str:
+        return None
+    try:
+        return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
+    except ValueError:
+        return None
+
+def get_date_filter_context(date_from, date_to):
+    """
+    Validates dates, computes presets, and determines the active filter.
+    Returns (valid_from, valid_to, active_filter, presets)
+    """
+    v_from = validate_date(date_from)
+    v_to = validate_date(date_to)
+
+    # Consistency check
+    if v_from and v_to and v_from > v_to:
+        return None, None, "error", {}
+
+    today = datetime.now().date()
+    presets = {
+        "this-month": {
+            "from": today.replace(day=1).strftime("%Y-%m-%d"),
+            "to": today.strftime("%Y-%m-%d")
+        },
+        "last-3-months": {
+            "from": (today - timedelta(days=90)).strftime("%Y-%m-%d"),
+            "to": today.strftime("%Y-%m-%d")
+        },
+        "last-6-months": {
+            "from": (today - timedelta(days=180)).strftime("%Y-%m-%d"),
+            "to": today.strftime("%Y-%m-%d")
+        }
+    }
+
+    active_filter = "all"
+    if v_from and v_to:
+        active_filter = "custom"
+        for key, range_val in presets.items():
+            if v_from == range_val["from"] and v_to == range_val["to"]:
+                active_filter = key
+                break
+
+    return v_from, v_to, active_filter, presets
+
 @app.route("/profile")
 def profile():
     # Authentication guard
@@ -155,16 +203,30 @@ def profile():
         flash("User not found", "error")
         return redirect(url_for("login"))
 
-    stats = get_summary_stats(user_id)
-    transactions = get_recent_transactions(user_id)
-    categories = get_category_breakdown(user_id)
+    # --- Date Filter Logic ---
+    date_from = request.args.get("date_from")
+    date_to = request.args.get("date_to")
+
+    valid_from, valid_to, active_filter, presets = get_date_filter_context(date_from, date_to)
+
+    if active_filter == "error":
+        flash("Start date must be before end date.", "error")
+        valid_from, valid_to, active_filter = None, None, "all"
+
+    stats = get_summary_stats(user_id, valid_from, valid_to)
+    transactions = get_recent_transactions(user_id, date_from=valid_from, date_to=valid_to)
+    categories = get_category_breakdown(user_id, valid_from, valid_to)
 
     return render_template(
         "profile.html",
         user=user,
         stats=stats,
         transactions=transactions,
-        categories=categories
+        categories=categories,
+        date_from=valid_from,
+        date_to=valid_to,
+        active_filter=active_filter,
+        presets=presets
     )
 
 
