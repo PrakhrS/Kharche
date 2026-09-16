@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics — Spendly{% endblock %}
+
+{% block content %}
+<section class="auth-section">
+    <div class="auth-container" style="text-align: center;">
+        <div class="hero-badge">Coming Soon</div>
+        <h1 class="hero-title" style="margin-bottom: 1rem;">Analytics</h1>
+        <p class="hero-subtitle" style="margin: 0 auto 2.5rem; max-width: 500px;">
+            We're building powerful insights to help you understand your spending habits even better.
+            Detailed charts, trend analysis, and budget forecasting are on their way.
+        </p>
+        <div class="hero-actions" style="justify-content: center;">
+            <a href="{{ url_for('profile') }}" class="btn-ghost">Back to Profile</a>
+        </div>
+    </div>
+</section>
+{% endblock %}

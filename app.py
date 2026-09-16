@@ -138,9 +138,14 @@ def privacy():
     return render_template("privacy.html")
 
 
-# ------------------------------------------------------------------ #
-# Placeholder routes — students will implement these                  #
-# ------------------------------------------------------------------ #
+@app.route("/analytics")
+def analytics():
+    # Authentication guard
+    if not session.get("user_id"):
+        return redirect(url_for("login"))
+
+    return render_template("analytics.html")
+
 
 
 def validate_date(date_str):
