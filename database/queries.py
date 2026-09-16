@@ -85,7 +85,6 @@ def get_summary_stats(user_id, date_from=None, date_to=None):
     finally:
         db.close()
 
-
 def get_recent_transactions(user_id, limit=10, date_from=None, date_to=None):
     """
     Fetch recent expenses for the given user_id.
@@ -160,5 +159,24 @@ def get_category_breakdown(user_id, date_from=None, date_to=None):
             res["total"] = f"₹ {res['total']:,.2f}"
 
         return results
+    finally:
+        db.close()
+
+def insert_expense(user_id, amount, category, date, description):
+    """
+    Insert a new expense record.
+    """
+    db = get_db()
+    try:
+        # Ensure description is stored as NULL if blank
+        description = description.strip() if description else None
+        if description == "":
+            description = None
+
+        db.execute(
+            "INSERT INTO expenses (user_id, amount, category, date, description) VALUES (?, ?, ?, ?, ?)",
+            (user_id, amount, category, date, description)
+        )
+        db.commit()
     finally:
         db.close()
