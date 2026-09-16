@@ -1,12 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from database.db import get_db, init_db, seed_db, create_user
-from database.queries import get_user_by_id, get_recent_transactions, get_summary_stats, get_category_breakdown
+from database.queries import get_user_by_id, get_recent_transactions, get_summary_stats, get_category_breakdown, insert_expense
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
 app.secret_key = 'dev-secret-key-change-in-production'
+
+VALID_CATEGORIES = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
 
 
 # ------------------------------------------------------------------ #
@@ -157,6 +159,43 @@ def validate_date(date_str):
     except ValueError:
         return None
 
+def validate_expense_form(form):
+    """
+    Validates the expense form data.
+    Returns (is_valid, errors, cleaned_data).
+    """
+    errors = []
+    amount_str = form.get("amount")
+    category = form.get("category")
+    date = form.get("date")
+    description = form.get("description")
+
+    # Amount validation
+    amount = None
+    try:
+        amount = float(amount_str)
+        if amount <= 0:
+            errors.append("Amount must be a positive number greater than 0")
+    except (TypeError, ValueError):
+        errors.append("Invalid amount provided")
+
+    # Category validation
+    if not category or category not in VALID_CATEGORIES:
+        errors.append("Please select a valid category")
+
+    # Date validation
+    if not date or not validate_date(date):
+        errors.append("A valid date is required")
+
+    is_valid = len(errors) == 0
+    cleaned_data = {
+        "amount": amount,
+        "category": category,
+        "date": date,
+        "description": description
+    }
+    return is_valid, errors, cleaned_data
+
 def get_date_filter_context(date_from, date_to):
     """
     Validates dates, computes presets, and determines the active filter.
@@ -235,9 +274,42 @@ def profile():
     )
 
 
-@app.route("/expenses/add")
+@app.route("/expenses/add", methods=["GET", "POST"])
 def add_expense():
-    return "Add expense — coming in Step 7"
+    # Authentication guard
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    date_today = datetime.now().strftime("%Y-%m-%d")
+
+    if request.method == "POST":
+        # Validate form data
+        is_valid, errors, data = validate_expense_form(request.form)
+
+        if not is_valid:
+            for error in errors:
+                flash(error, "error")
+            return render_template("add_expense.html", date_today=date_today)
+
+        # Success: Insert into database
+        try:
+            insert_expense(
+                user_id,
+                data["amount"],
+                data["category"],
+                data["date"],
+                data["description"]
+            )
+            flash("Expense saved successfully!", "success")
+            return redirect(url_for("profile"))
+        except Exception:
+            flash("An unexpected error occurred while saving your expense. Please try again.", "error")
+            return render_template("add_expense.html", date_today=date_today)
+
+    # GET request
+    return render_template("add_expense.html", date_today=date_today)
+
 
 
 @app.route("/expenses/<int:id>/edit")
