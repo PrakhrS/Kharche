@@ -1,19 +1,36 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 from database.db import get_db, init_db, seed_db, create_user
-from database.queries import get_user_by_id, get_recent_transactions, get_summary_stats, get_category_breakdown, insert_expense
+from database.queries import (
+    get_user_by_id,
+    get_recent_transactions,
+    get_summary_stats,
+    get_category_breakdown,
+    insert_expense,
+    get_expense_by_id,
+    update_expense,
+)
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
 from datetime import datetime, timedelta
 
 app = Flask(__name__)
-app.secret_key = 'dev-secret-key-change-in-production'
+app.secret_key = "dev-secret-key-change-in-production"
 
-VALID_CATEGORIES = ["Food", "Transport", "Bills", "Health", "Entertainment", "Shopping", "Other"]
+VALID_CATEGORIES = [
+    "Food",
+    "Transport",
+    "Bills",
+    "Health",
+    "Entertainment",
+    "Shopping",
+    "Other",
+]
 
 
 # ------------------------------------------------------------------ #
 # Routes                                                              #
 # ------------------------------------------------------------------ #
+
 
 @app.route("/")
 def landing():
@@ -96,7 +113,7 @@ def login():
             # Find user by email
             cursor = db.execute(
                 "SELECT id, name, email, password_hash FROM users WHERE email = ?",
-                (email,)
+                (email,),
             )
             user = cursor.fetchone()
 
@@ -149,7 +166,6 @@ def analytics():
     return render_template("analytics.html")
 
 
-
 def validate_date(date_str):
     """Validates a date string in YYYY-MM-DD format."""
     if not date_str:
@@ -158,6 +174,7 @@ def validate_date(date_str):
         return datetime.strptime(date_str, "%Y-%m-%d").strftime("%Y-%m-%d")
     except ValueError:
         return None
+
 
 def validate_expense_form(form):
     """
@@ -192,9 +209,10 @@ def validate_expense_form(form):
         "amount": amount,
         "category": category,
         "date": date,
-        "description": description
+        "description": description,
     }
     return is_valid, errors, cleaned_data
+
 
 def get_date_filter_context(date_from, date_to):
     """
@@ -212,16 +230,16 @@ def get_date_filter_context(date_from, date_to):
     presets = {
         "this-month": {
             "from": today.replace(day=1).strftime("%Y-%m-%d"),
-            "to": today.strftime("%Y-%m-%d")
+            "to": today.strftime("%Y-%m-%d"),
         },
         "last-3-months": {
             "from": (today - timedelta(days=90)).strftime("%Y-%m-%d"),
-            "to": today.strftime("%Y-%m-%d")
+            "to": today.strftime("%Y-%m-%d"),
         },
         "last-6-months": {
             "from": (today - timedelta(days=180)).strftime("%Y-%m-%d"),
-            "to": today.strftime("%Y-%m-%d")
-        }
+            "to": today.strftime("%Y-%m-%d"),
+        },
     }
 
     active_filter = "all"
@@ -233,6 +251,7 @@ def get_date_filter_context(date_from, date_to):
                 break
 
     return v_from, v_to, active_filter, presets
+
 
 @app.route("/profile")
 def profile():
@@ -251,14 +270,18 @@ def profile():
     date_from = request.args.get("date_from")
     date_to = request.args.get("date_to")
 
-    valid_from, valid_to, active_filter, presets = get_date_filter_context(date_from, date_to)
+    valid_from, valid_to, active_filter, presets = get_date_filter_context(
+        date_from, date_to
+    )
 
     if active_filter == "error":
         flash("Start date must be before end date.", "error")
         valid_from, valid_to, active_filter = None, None, "all"
 
     stats = get_summary_stats(user_id, valid_from, valid_to)
-    transactions = get_recent_transactions(user_id, date_from=valid_from, date_to=valid_to)
+    transactions = get_recent_transactions(
+        user_id, date_from=valid_from, date_to=valid_to
+    )
     categories = get_category_breakdown(user_id, valid_from, valid_to)
 
     return render_template(
@@ -270,7 +293,7 @@ def profile():
         date_from=valid_from,
         date_to=valid_to,
         active_filter=active_filter,
-        presets=presets
+        presets=presets,
     )
 
 
@@ -299,22 +322,73 @@ def add_expense():
                 data["amount"],
                 data["category"],
                 data["date"],
-                data["description"]
+                data["description"],
             )
             flash("Expense saved successfully!", "success")
             return redirect(url_for("profile"))
         except Exception:
-            flash("An unexpected error occurred while saving your expense. Please try again.", "error")
+            flash(
+                "An unexpected error occurred while saving your expense. Please try again.",
+                "error",
+            )
             return render_template("add_expense.html", date_today=date_today)
 
     # GET request
     return render_template("add_expense.html", date_today=date_today)
 
 
-
-@app.route("/expenses/<int:id>/edit")
+@app.route("/expenses/<int:id>/edit", methods=["GET", "POST"])
 def edit_expense(id):
-    return "Edit expense — coming in Step 8"
+    # Authentication guard
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    # Load existing expense and check ownership
+    expense = get_expense_by_id(id, user_id)
+    if not expense:
+        return "Expense not found", 404
+
+    if request.method == "POST":
+        # Validate form data
+        is_valid, errors, data = validate_expense_form(request.form)
+
+        if not is_valid:
+            for error in errors:
+                flash(error, "error")
+            # Re-render form with submitted values (passed via 'data' or request.form)
+            return render_template(
+                "edit_expense.html",
+                expense=data if not is_valid else expense,
+                expense_id=id,
+                categories=VALID_CATEGORIES,
+            )
+
+        # Success: Update in database
+        try:
+            update_expense(
+                id,
+                user_id,
+                data["amount"],
+                data["category"],
+                data["date"],
+                data["description"],
+            )
+            flash("Expense updated successfully!", "success")
+            return redirect(url_for("profile"))
+        except Exception:
+            flash("An unexpected error occurred while updating your expense.", "error")
+            return render_template(
+                "edit_expense.html",
+                expense=expense,
+                expense_id=id,
+                categories=VALID_CATEGORIES,
+            )
+
+    # GET request
+    return render_template(
+        "edit_expense.html", expense=expense, expense_id=id, categories=VALID_CATEGORIES
+    )
 
 
 @app.route("/expenses/<int:id>/delete")
