@@ -8,6 +8,7 @@ from database.queries import (
     insert_expense,
     get_expense_by_id,
     update_expense,
+    delete_expense,
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 import sqlite3
@@ -391,9 +392,26 @@ def edit_expense(id):
     )
 
 
-@app.route("/expenses/<int:id>/delete")
-def delete_expense(id):
-    return "Delete expense — coming in Step 9"
+@app.route("/expenses/<int:id>/delete", methods=["POST"])
+def delete_expense_route(id):
+    # Authentication guard
+    user_id = session.get("user_id")
+    if not user_id:
+        return redirect(url_for("login"))
+
+    # Ownership verification
+    expense = get_expense_by_id(id, user_id)
+    if not expense:
+        return "Expense not found", 404
+
+    # Delete the expense
+    try:
+        delete_expense(id, user_id)
+        flash("Expense deleted successfully!", "success")
+    except Exception:
+        flash("An error occurred while deleting the expense.", "error")
+
+    return redirect(url_for("profile"))
 
 
 # Initialize database and seed data on application startup
