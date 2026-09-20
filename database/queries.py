@@ -206,6 +206,22 @@ def get_category_breakdown(user_id, date_from=None, date_to=None):
         db.close()
 
 
+def delete_expense(expense_id, user_id):
+    """
+    Permanently delete an expense record, ensuring ownership.
+    """
+    db = get_db()
+    try:
+        cursor = db.execute(
+            "DELETE FROM expenses WHERE id = ? AND user_id = ?",
+            (expense_id, user_id),
+        )
+        db.commit()
+        return cursor.rowcount
+    finally:
+        db.close()
+
+
 def insert_expense(user_id, amount, category, date, description):
     """
     Insert a new expense record.
